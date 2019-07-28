@@ -8,25 +8,77 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
+library(FactoMineR)
+library(factoextra)
+library(ggplot2)
+library(corrplot)
+library(ape)
+library(caret)
+library(RColorBrewer)
+library(rmarkdown)
+library(knitr)
+
 arm1 <- read.csv("cleanarm1.csv")
 ```
 
 ## R Markdown
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
-
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
 
 ```{r cars}
-summary(cars)
+head(arm1)
+
+
+M1 <- arm1[arm1$Subject=='1.1' ,]
+summary(M1)
+table(M1$Choice)
+table(M1$Reward)
+
+M1L <- subset(arm1, Subject=='1.1' & Task=='0P005_WTL')
+dim(M1L)
+table(M1L$Choice)
+summary(M1L)
+J1 <- subset(arm1, Subject=='1.1' & Task=='0P005_WTL' & Day=='1')
+T <- list(J1$Time)
+T
+
+M1R <- subset(arm1, Subject=='1.1' & Task=='0P005_WTR')
+dim(M1R)
+table(M1R$Choice)
+```
+```{r}
+
+T <- J1$Time
+Trep <- list()
+for (i in 0:T){
+  Trep[i] <-  T[i+1]-T[i]
+}
+Trep
+
+arm1 <- arm1 %>% 
+  group_by(Day, Subject) %>% 
+  arrange(Trial) %>% 
+  mutate(Timebetween = Time - lag(Time))
 ```
 
-## Including Plots
 
-You can also embed plots, for example:
-
-```{r pressure, echo=FALSE}
-plot(pressure)
+```{python}
+L=[]
+T=[]
+for i in range(len(T)-1) :
+  L.append((T[i+1]-T[i])*0.1)
+print(L) 
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+# Mouse 1
+
+Mouse 1.1 is a smart one. (Cf.Learning-Analysis)
+On TPGS treatment.
+The maximum number of trials is around 1000 (10 times 100 presses). He pressed 979 on 1000 trials. 
+Among these 979 presses, 808 were the high rewarded lever and only 171 on the low lever. 
+During the reversal phase (WTR), mouse 1.1 pressed 100 times the lever each 5 days. 
+We can see that during the WTL session, he pressed 435/479 (90,8%) the high lever and 44/479 (9,2%) the low lever while during the reversal phase (WTR), he pressed 373/500 (74,6%) the high lever and 127/500 (25,4%) the low lever. 
+The probability of success is obviously much better before the reversal. 
+
+
+Other remarks : 
+
