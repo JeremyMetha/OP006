@@ -75,7 +75,7 @@ qplot(Trial, Timebetween, data = d1M1, geom='line') +
   facet_wrap(~ Day) +
   labs(y = "Time needed between two presses (in seconds)",
        x = "Trial number",
-       title = "Evolution of Timebetween Data for mouse 1.1 for the 10 days of experiment")
+       title = "Evolution of Timebetween (Trials) Data for mouse 1.1 for the 10 days of experiment")
 ggsave("Timeevolution1.1.png", width = 11, height = 8)
 
 
@@ -86,7 +86,7 @@ ggplot(data = d1M1, aes(x = Trial, y = Timebetween)) +
   facet_grid(. ~ Day) +
   labs(y = "Time needed between two presses (in seconds)",
        x = "Trial number",
-       title = "Evolution of Timebetween Data for mouse 1.1 for the 10 days of experiment") +
+       title = "Evolution of Timebetween (Trials) Data for mouse 1.1 for the 10 days of experiment") +
   theme_linedraw() +
   theme(strip.text = element_text(size = rel(1)),
         panel.grid = element_blank())
@@ -106,20 +106,19 @@ ggsave("TimebetweenMouse1.1.png", width = 11, height = 8)
 TBD <- sortarm1 %>%
   group_by(Day, Subject) %>%
   summarise(mean_timeb = mean(Timebetween, na.rm=TRUE)) # New frame with the mean of timebetween for each day and each mouse. 
-
 ```
 
 
 ```{r}
 
-qplot(Day, mean_timeb, data = TBD) +
-  facet_wrap(~ Subject) +
-  labs(y = "Time needed between two presses (in seconds)",
+M1 <- filter(TBD, Subject=='1.1')
+ggplot(M1) + geom_point(aes(x = Day, y = mean_timeb))
+ggplot(M1) + geom_line(aes(x = Day, y = mean_timeb)) + 
+  labs(y = "Mean of Time needed between two presses (in seconds)",
        x = "Day",
-       title = "Evolution of Timebetween Data per days for each mouse")
+       title = "Evolution of Timebetween (mean) Data for mouse 1.1 for the 10 days of experiment")
 
-```
-```{r}
+ggsave("EvolutionofTimebetweenMouse1.1.png", width = 11, height = 8)
 
 ```
 
@@ -132,6 +131,126 @@ Among these 979 presses, 808 were the high rewarded lever and only 171 on the lo
 During the reversal phase (WTR), mouse 1.1 pressed 100 times the lever each 5 days. 
 We can see that during the WTL session, he pressed 435/479 (90,8%) the high lever and 44/479 (9,2%) the low lever while during the reversal phase (WTR), he pressed 373/500 (74,6%) the high lever and 127/500 (25,4%) the low lever. 
 The probability of success is obviously much better before the reversal. 
+
+
+Graphs : 
+
+The time of response decrease from day 2 to 5. (from 10,3s to 8s). We can see an increase of the time of response on day 6, which is the first day of reversal. Then the time of response decrease again to 8,25s. 
+
+
+# Analysing the timebetween per day and per mouse
+
+```{r}
+ggplot(TBD) + geom_point(aes(x = Day, y = mean_timeb, color = Subject))
+```
+
+
+
+```{r}
+
+qplot(Day, mean_timeb, data = TBD) +
+  facet_wrap(~ Subject) +
+  labs(y = "Time needed between two presses (in seconds)",
+       x = "Day",
+       title = "Evolution of Timebetween Data per days for each mouse")
+
+```
+
+
+
+# Separation of the two groups 
+
+# TPGS Analyse time of response
+```{r}
+
+
+TBD2 <- sortarm1 %>% 
+  group_by(Day, Subject) %>%
+  mutate(mean_timeb = mean(Timebetween, na.rm = TRUE)) 
+  
+
+TPGS <- filter(TBD2, Treatment=='T')
+
+
+TPGS2 <- TPGS %>% # New frame : mean of time of response for each day in the TPGS group
+  group_by(Day) %>% 
+  mutate(mean_day = mean(mean_timeb, na.rm = TRUE)) %>% 
+  select(mean_day, Day) %>%
+  distinct
+
+TPGS2
+
+ggplot(TPGS2) + geom_point(aes(x = Day, y = mean_day)) +
+  labs(y = "Time needed between two presses (in seconds)",
+       x = "Day",
+       title = "Evolution of Timebetween Data for the TPGS group - MEAN per DAY")
+
+ggsave("EvolutionofTimeResponse_MEAN-per-DAY_TPGS.png", width = 11, height = 8)
+
+
+ggplot(TPGS) + geom_point(aes(x = Day, y = mean_timeb)) +
+  labs(y = "Time needed between two presses (in seconds)",
+       x = "Day",
+       title = "Evolution of Timebetween Data for the TPGS group")
+ggsave("EvolutionofTimeResponse_TPGS-1.png", width = 11, height = 8)
+
+
+qplot(Day, mean_timeb, data = TPGS) +
+  facet_wrap(~ Subject) +
+  labs(y = "Time needed between two presses (in seconds)",
+       x = "Day",
+       title = "Evolution of Timebetween Data for the TPGS group")
+
+ggsave("EvolutionofTimeResponseTPGS-2.png", width = 11, height = 8)
+
+```
+
+
+
+
+# 1-SORA-51 Analyse time of response
+
+```{r}
+DRUG <- filter(TBD2, Treatment=='S')
+
+DRUG2 <- DRUG %>% # New frame : mean of time of response for each day in the TPGS group
+  group_by(Day) %>% 
+  mutate(mean_day = mean(mean_timeb, na.rm = TRUE)) %>% 
+  select(mean_day, Day) %>%
+  distinct
+
+DRUG2
+summary(DRUG2$mean_day)
+
+
+ggplot(DRUG2) + geom_point(aes(x = Day, y = mean_day)) +
+    labs(y = "Time needed between two presses (in seconds)",
+       x = "Day",
+       title = "Evolution of Timebetween Data for the DRUG group  - MEAN for each DAY")
+
+ggsave("EvolutionofTimeResponse-MEAN-per-DAY_SORA.png", width = 11, height = 8)
+
+
+ggplot(DRUG) + geom_point(aes(x = Day, y = mean_timeb)) +
+  labs(y = "Time needed between two presses (in seconds)",
+       x = "Day",
+       title = "Evolution of Timebetween Data for the DRUG group")
+
+ggsave("EvolutionofTimeResponse-SORA-1.png", width = 11, height = 8)
+
+qplot(Day, mean_timeb, data = DRUG) +
+  facet_wrap(~ Subject) +
+  labs(y = "Time needed between two presses (in seconds)",
+       x = "Day",
+       title = "Evolution of Timebetween Data for the DRUG group")
+ggsave("EvolutionofTimeResponse-SORA-2.png", width = 11, height = 8)
+
+
+```
+
+
+
+
 
 
 Other remarks : 
