@@ -1,8 +1,19 @@
 ---
 title: "Exploratory analysis of OP006 operant data"
-author: "JeremyMetha"
+author: "JeremyMetha & MathildeBertheau"
 date: "26/07/2019"
-output: html_document
+output: 
+  html_document:
+    
+    
+    df_print: paged
+    toc: true
+    toc_depth: 2
+    number_sections: true
+    theme: yeti
+    fig_width: 7
+    fig_height: 6
+    fig_caption: true
 ---
 
 ```{r setup, include=FALSE}
@@ -17,6 +28,9 @@ library(caret)
 library(RColorBrewer)
 library(rmarkdown)
 library(knitr)
+library(gridExtra)
+library(cowplot)
+
 
 arm1 <- read.csv("cleanarm1.csv")
 ```
@@ -38,8 +52,7 @@ dim(M1L)
 table(M1L$Choice)
 summary(M1L)
 D1 <- subset(arm1, Subject=='1.1' & Task=='0P005_WTL' & Day=='1')
-T <- list(J1$Time)
-T
+
 
 M1R <- subset(arm1, Subject=='1.1' & Task=='0P005_WTR')
 dim(M1R)
@@ -113,11 +126,11 @@ TBD <- sortarm1 %>%
 
 M1 <- filter(TBD, Subject=='1.1')
 ggplot(M1) + geom_point(aes(x = Day, y = mean_timeb))
-ggplot(M1) + geom_line(aes(x = Day, y = mean_timeb)) + 
+gM1 <- ggplot(M1) + geom_line(aes(x = Day, y = mean_timeb)) + 
   labs(y = "Mean of Time needed between two presses (in seconds)",
        x = "Day",
        title = "Evolution of Timebetween (mean) Data for mouse 1.1 for the 10 days of experiment")
-
+gM1
 ggsave("EvolutionofTimebetweenMouse1.1.png", width = 11, height = 8)
 
 ```
@@ -137,6 +150,51 @@ Graphs :
 
 The time of response decrease from day 2 to 5. (from 10,3s to 8s). We can see an increase of the time of response on day 6, which is the first day of reversal. Then the time of response decrease again to 8,25s. 
 
+
+
+#Mouse 2
+```{r}
+M2 <- filter(TBD, Subject=='1.2')
+ggplot(M2) + geom_point(aes(x = Day, y = mean_timeb))
+gM2 <- ggplot(M2) + geom_line(aes(x = Day, y = mean_timeb)) + 
+  labs(y = "Mean of Time needed between two presses (in seconds)",
+       x = "Day",
+       title = "Evolution of Timebetween (mean) Data for mouse 1.2 for the 10 days of experiment")
+gM2
+ggsave("EvolutionofTimebetweenMouse1.2.png", width = 11, height = 8)
+```
+
+#Mouse 3
+```{r}
+M3 <- filter(TBD, Subject=='2.3')
+ggplot(M3) + geom_point(aes(x = Day, y = mean_timeb))
+gM3 <- ggplot(M3) + geom_line(aes(x = Day, y = mean_timeb)) + 
+  labs(y = "Mean of Time needed between two presses (in seconds)",
+       x = "Day",
+       title = "Evolution of Timebetween (mean) Data for mouse 2.3 for the 10 days of experiment")
+gM3
+ggsave("EvolutionofTimebetweenMouse2.3.png", width = 11, height = 8)
+```
+
+#Mouse 4 
+```{r}
+M4 <- filter(TBD, Subject=='2.4')
+ggplot(M4) + geom_point(aes(x = Day, y = mean_timeb))
+gM4 <- ggplot(M4) + geom_line(aes(x = Day, y = mean_timeb)) + 
+  labs(y = "Mean of Time needed between two presses (in seconds)",
+       x = "Day",
+       title = "Evolution of Timebetween (mean) Data for mouse 2.4 for the 10 days of experiment")
+gM4
+ggsave("EvolutionofTimebetweenMouse2.4.png", width = 11, height = 8)
+```
+
+# Group of graph : Mice 1.1, 1.2, 2.3 and 2.4
+
+```{r}
+#plot_grid(gM1,gM2,gM3,gM4, labels=c("M1.1", "M1.2","M2.3", "M2.4"), ncol = 2, nrow = 2) 
+
+
+```
 
 # Analysing the timebetween per day and per mouse
 
@@ -201,7 +259,12 @@ qplot(Day, mean_timeb, data = TPGS) +
        x = "Day",
        title = "Evolution of Timebetween Data for the TPGS group")
 
+qplot(Day, mean_timeb, data = TPGS, color=Subject, geom='path') +  
+  labs(y = "Time needed between two presses (in seconds)",
+       x = "Day",
+       title = "Evolution of Timebetween Data for the TPGS group")
 ggsave("EvolutionofTimeResponseTPGS-2.png", width = 11, height = 8)
+
 
 ```
 
@@ -243,13 +306,27 @@ qplot(Day, mean_timeb, data = DRUG) +
   labs(y = "Time needed between two presses (in seconds)",
        x = "Day",
        title = "Evolution of Timebetween Data for the DRUG group")
-ggsave("EvolutionofTimeResponse-SORA-2.png", width = 11, height = 8)
+
+
+qplot(Day, mean_timeb, data = DRUG, color=Subject, geom='path') +  
+  labs(y = "Time needed between two presses (in seconds)",
+       x = "Day",
+       title = "Evolution of Timebetween Data for the DRUG group")
+ggsave("EvolutionofTimeResponseSORA-2.png", width = 11, height = 8)
+
 
 
 ```
 
 
 
+# Correction of the Data : Removing aberant subjects values.
+
+## In TPGS group 
+
+```{r}
+
+```
 
 
 
