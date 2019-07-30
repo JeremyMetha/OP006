@@ -2,18 +2,20 @@
 title: "Exploratory analysis of OP006 operant data"
 author: "JeremyMetha & MathildeBertheau"
 date: "26/07/2019"
-output: 
+output:
   html_document:
-    
-    
+    code_folding: hide
     df_print: paged
-    toc: true
-    toc_depth: 2
-    number_sections: true
-    theme: yeti
-    fig_width: 7
+    fig_caption: yes
     fig_height: 6
-    fig_caption: true
+    fig_width: 7
+    number_sections: yes
+    theme: yeti
+    toc: yes
+    toc_depth: 2
+  pdf_document:
+    toc: yes
+    toc_depth: '2'
 ---
 
 ```{r setup, include=FALSE}
@@ -35,30 +37,6 @@ library(cowplot)
 arm1 <- read.csv("cleanarm1.csv")
 ```
 
-## R Markdown
-
-
-```{r cars}
-head(arm1)
-
-
-M1 <- arm1[arm1$Subject=='1.1' ,]
-summary(M1)
-table(M1$Choice)
-table(M1$Reward)
-
-M1L <- subset(arm1, Subject=='1.1' & Task=='0P005_WTL')
-dim(M1L)
-table(M1L$Choice)
-summary(M1L)
-D1 <- subset(arm1, Subject=='1.1' & Task=='0P005_WTL' & Day=='1')
-
-
-M1R <- subset(arm1, Subject=='1.1' & Task=='0P005_WTR')
-dim(M1R)
-table(M1R$Choice)
-```
-
 
 # Sort out the Data and Create the Timeresponse column
 ```{r}
@@ -77,37 +55,7 @@ head(sortarm1)
 
 ```
 
-# Analysing Mouse 1.1
-
-```{r}
-
-d1M1 <- filter(sortarm1,Subject=='1.1')
-head(d1M1)
-
-qplot(Trial, Timebetween, data = d1M1, geom='line') +
-  facet_wrap(~ Day) +
-  labs(y = "Time needed between two presses (in seconds)",
-       x = "Trial number",
-       title = "Evolution of Timebetween (Trials) Data for mouse 1.1 for the 10 days of experiment")
-ggsave("Timeevolution1.1.png", width = 11, height = 8)
-
-
-# Graphs showing the evolution of time between per trial for each day
-
-ggplot(data = d1M1, aes(x = Trial, y = Timebetween)) +
-  geom_boxplot() + 
-  facet_grid(. ~ Day) +
-  labs(y = "Time needed between two presses (in seconds)",
-       x = "Trial number",
-       title = "Evolution of Timebetween (Trials) Data for mouse 1.1 for the 10 days of experiment") +
-  theme_linedraw() +
-  theme(strip.text = element_text(size = rel(1)),
-        panel.grid = element_blank())
-
-ggsave("TimebetweenMouse1.1.png", width = 11, height = 8)
-
-```
-
+# Creation of the Variable Mean of the time needed for pressing a lever for all trials
 ```{r}
 #head(arm1)
 
@@ -119,10 +67,71 @@ ggsave("TimebetweenMouse1.1.png", width = 11, height = 8)
 TBD <- sortarm1 %>%
   group_by(Day, Subject) %>%
   summarise(mean_timeb = mean(Timebetween, na.rm=TRUE)) # New frame with the mean of timebetween for each day and each mouse. 
+
 ```
 
+# Analyse on Each Mouse
+
+## Mouse 1.1 
 
 ```{r}
+M <- arm1[arm1$Subject=='1.1' ,]
+summary(M)
+table(M$Choice)
+table(M$Reward)
+
+
+
+ML <- subset(arm1, Subject=='1.1' & Task=='0P005_WTL')
+dim(ML)
+table(ML$Choice)
+
+MR <- subset(arm1, Subject=='1.1' & Task=='0P005_WTR')
+dim(MR)
+table(MR$Choice)
+
+
+Nb_pres <- count(M, Choice, Day)
+names(Nb_pres)[1] <- "Lever"
+Nb_pres$Lever[Nb_pres$Lever==-1] <- "Low_lever"
+Nb_pres$Lever[Nb_pres$Lever==1] <- "High_lever"
+names(Nb_pres)[2] <- "day"
+Nb_pres
+quickplot(x=day, y=n, data = Nb_pres, color = Lever) +
+  labs(y = "Number of presses",
+       x = "Day",
+       title = "Number of presses for each lever per day for mouse 1.1")# Graph number of presses on each
+ggsave("Number of presses for each lever per day for mouse 1.1.png", width = 11, height = 8)
+
+
+HL <- filter(Nb_pres,Lever=='High_lever')
+barplot(HL$n, xlab='Day', ylab='Nb_presses', col ='darkred', main='Evolution of presses on the High_Lever for mouse 1.1',xlim=c(0,12), ylim=c(0,100)) 
+
+LL <- filter(Nb_pres,Lever=='Low_lever')
+barplot(LL$n, xlab='Day', ylab='Nb_presses', col ='darkblue', main='Evolution of presses on the Low_Lever for mouse 1.1',xlim=c(0,12), ylim=c(0,100) )
+
+dM <- filter(sortarm1,Subject=='1.1')
+
+
+qplot(Trial, Timebetween, data = dM, geom='line') +
+  facet_wrap(~ Day) +
+  labs(y = "Time needed between two presses (in seconds)",
+       x = "Trial number",
+       title = "Evolution of Timebetween (Trials) Data for mouse 1.1 for the 10 days of experiment")
+
+# Graphs showing the evolution of time between per trial for each day
+
+ggplot(data = dM, aes(x = Trial, y = Timebetween)) +
+  geom_boxplot() + 
+  facet_grid(. ~ Day) +
+  labs(y = "Time needed between two presses (in seconds)",
+       x = "Trial number",
+       title = "Evolution of Timebetween (Trials) Data for mouse 1.1 for the 10 days of experiment") +
+  theme_linedraw() +
+  theme(strip.text = element_text(size = rel(1)),
+        panel.grid = element_blank())
+
+
 
 M1 <- filter(TBD, Subject=='1.1')
 ggplot(M1) + geom_point(aes(x = Day, y = mean_timeb))
@@ -131,11 +140,11 @@ gM1 <- ggplot(M1) + geom_line(aes(x = Day, y = mean_timeb)) +
        x = "Day",
        title = "Evolution of Timebetween (mean) Data for mouse 1.1 for the 10 days of experiment")
 gM1
-ggsave("EvolutionofTimebetweenMouse1.1.png", width = 11, height = 8)
+
+
 
 ```
 
-# Mouse 1
 
 Mouse 1.1 is a smart one. (Cf.Learning-Analysis)
 On TPGS treatment.
@@ -151,42 +160,6 @@ Graphs :
 The time of response decrease from day 2 to 5. (from 10,3s to 8s). We can see an increase of the time of response on day 6, which is the first day of reversal. Then the time of response decrease again to 8,25s. 
 
 
-
-#Mouse 2
-```{r}
-M2 <- filter(TBD, Subject=='1.2')
-ggplot(M2) + geom_point(aes(x = Day, y = mean_timeb))
-gM2 <- ggplot(M2) + geom_line(aes(x = Day, y = mean_timeb)) + 
-  labs(y = "Mean of Time needed between two presses (in seconds)",
-       x = "Day",
-       title = "Evolution of Timebetween (mean) Data for mouse 1.2 for the 10 days of experiment")
-gM2
-ggsave("EvolutionofTimebetweenMouse1.2.png", width = 11, height = 8)
-```
-
-#Mouse 3
-```{r}
-M3 <- filter(TBD, Subject=='2.3')
-ggplot(M3) + geom_point(aes(x = Day, y = mean_timeb))
-gM3 <- ggplot(M3) + geom_line(aes(x = Day, y = mean_timeb)) + 
-  labs(y = "Mean of Time needed between two presses (in seconds)",
-       x = "Day",
-       title = "Evolution of Timebetween (mean) Data for mouse 2.3 for the 10 days of experiment")
-gM3
-ggsave("EvolutionofTimebetweenMouse2.3.png", width = 11, height = 8)
-```
-
-#Mouse 4 
-```{r}
-M4 <- filter(TBD, Subject=='2.4')
-ggplot(M4) + geom_point(aes(x = Day, y = mean_timeb))
-gM4 <- ggplot(M4) + geom_line(aes(x = Day, y = mean_timeb)) + 
-  labs(y = "Mean of Time needed between two presses (in seconds)",
-       x = "Day",
-       title = "Evolution of Timebetween (mean) Data for mouse 2.4 for the 10 days of experiment")
-gM4
-ggsave("EvolutionofTimebetweenMouse2.4.png", width = 11, height = 8)
-```
 
 # Group of graph : Mice 1.1, 1.2, 2.3 and 2.4
 
@@ -218,7 +191,7 @@ qplot(Day, mean_timeb, data = TBD) +
 
 # Separation of the two groups 
 
-# TPGS Analyse time of response
+## TPGS Analyse time of response
 ```{r}
 
 
@@ -270,8 +243,7 @@ ggsave("EvolutionofTimeResponseTPGS-2.png", width = 11, height = 8)
 
 
 
-
-# 1-SORA-51 Analyse time of response
+## 1-SORA-51 Analyse time of response
 
 ```{r}
 DRUG <- filter(TBD2, Treatment=='S')
@@ -330,5 +302,5 @@ ggsave("EvolutionofTimeResponseSORA-2.png", width = 11, height = 8)
 
 
 
-Other remarks : 
+# Other remarks : 
 
