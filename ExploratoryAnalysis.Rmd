@@ -298,9 +298,38 @@ ggsave("EvolutionofTimeResponseSORA-2.png", width = 11, height = 8)
 
 ```{r}
 
+TPGScor <- subset(TPGS, Subject!='2.3' & Subject!='11.1')
+
+qplot(Day, mean_timeb, data = TPGScor, color=Subject, geom='path') +  
+  labs(y = "Time needed between two presses (in seconds)",
+       x = "Day",
+       title = "Evolution of Timebetween Data for the TPGS_cor group")
+
+TPGS[TPGS$mean_timeb>50 ,] # Identify aberrant subject ! 
+
+summary(TPGScor$mean_timeb)
+```
+
+## In the Drug group 
+
+```{r}
+
+DRUG[DRUG$mean_timeb>100 ,] # Identify aberrant subject ! 
+
+DRUGcor <- subset(DRUG, Subject!='7.4' & Subject!='9.1' & Subject!='10.4'& Subject!='10.3')
+
+qplot(Day, mean_timeb, data = DRUGcor, color=Subject, geom='path') +  
+  labs(y = "Time needed between two presses (in seconds)",
+       x = "Day",
+       title = "Evolution of Timebetween Data for the DRUGcor group")
+
+summary(DRUGcor$mean_timeb)
+
+
 ```
 
 
+For the drug group, we can see that the mean time of response is approximately 13 seconds bewteen two presses while for the TPGS group the mean is approximately 10 seconds.
 
 # Other remarks : 
 
