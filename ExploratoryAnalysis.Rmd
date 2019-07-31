@@ -305,9 +305,54 @@ qplot(Day, mean_timeb, data = TPGScor, color=Subject, geom='path') +
        x = "Day",
        title = "Evolution of Timebetween Data for the TPGS_cor group")
 
-TPGS[TPGS$mean_timeb>50 ,] # Identify aberrant subject ! 
+#TPGS[TPGS$mean_timeb>50 ,] # Identify aberrant subject ! 
 
 summary(TPGScor$mean_timeb)
+
+# Study the time of response between two presses 
+
+TPGScor2 <- TPGScor %>% # New frame : mean of time of response for each day in the TPGS group
+  group_by(Day) %>% 
+  mutate(mean_day = mean(mean_timeb, na.rm = TRUE)) %>% 
+  select(mean_day, Day) %>%
+  distinct
+
+ggplot(TPGScor2) + geom_line(aes(x = Day, y = mean_day)) +
+    labs(y = "Time needed between two presses (in seconds)",
+       x = "Day",
+       title = "Evolution of Timebetween Data for the TPGScor group  - MEAN for each DAY")
+
+ggsave("EvolutionofTimeResponse-TPGScor-per-day.png", width = 11, height = 8)
+
+# Study levers 
+
+
+Levers <- count(TPGScor, Choice)
+Levers$Choice[Levers$Choice==-1] <- "Low_lever"
+Levers$Choice[Levers$Choice==1] <- "High_lever"
+
+Levers
+
+quickplot(x=Day, y=n, data = Levers, color = Choice) +
+  labs(y = "Number of presses",
+       x = "Day",
+       title = "Number of presses for each lever per day for TPGScor group")# Graph number of presses on each
+
+
+AllSubT <- Levers %>% # New frame : mean of time of response for each day in the TPGS group
+  group_by(Day,Choice) %>% 
+  mutate(mean_all = mean(n, na.rm = TRUE)) %>% 
+  select(mean_all, Day) %>%
+  distinct
+
+quickplot(x=Day, y=mean_all, data = AllSubT, color = Choice) +
+  labs(y = "Number of presses (MEAN)",
+       x = "Day",
+       title = "Number of presses for each lever per day for TPGScor group (MEAN ALL MICE)")# Graph number of presses on each
+
+ggsave("EvolutionofLeverDecision-TPGScor-per-day.png", width = 11, height = 8)
+
+
 ```
 
 ## In the Drug group 
@@ -325,6 +370,43 @@ qplot(Day, mean_timeb, data = DRUGcor, color=Subject, geom='path') +
 
 summary(DRUGcor$mean_timeb)
 
+DRUGcor2 <- DRUGcor %>% # New frame : mean of time of response for each day in the TPGS group
+  group_by(Day) %>% 
+  mutate(mean_day = mean(mean_timeb, na.rm = TRUE)) %>% 
+  select(mean_day, Day) %>%
+  distinct
+
+ggplot(DRUGcor2) + geom_line(aes(x = Day, y = mean_day)) +
+    labs(y = "Time needed between two presses (in seconds)",
+       x = "Day",
+       title = "Evolution of Timebetween Data for the DRUGcor group  - MEAN for each DAY")
+
+ggsave("EvolutionofTimeResponse-SORAcor-per-day.png", width = 11, height = 8)
+
+
+# Study levers
+
+LeversD <- count(DRUGcor, Choice, Day)
+LeversD$Choice[LeversD$Choice==-1] <- "Low_lever"
+LeversD$Choice[LeversD$Choice==1] <- "High_lever"
+
+quickplot(x=Day, y=n, data = LeversD, color = Choice) +
+  labs(y = "Number of presses",
+       x = "Day",
+       title = "Number of presses for each lever per day for DRUGcor group")# Graph number of presses on each
+
+AllSub <- LeversD %>% # New frame : mean of time of response for each day in the TPGS group
+  group_by(Day,Choice) %>% 
+  mutate(mean_all = mean(n, na.rm = TRUE)) %>% 
+  select(mean_all, Day) %>%
+  distinct
+
+quickplot(x=Day, y=mean_all, data = AllSub, color = Choice) +
+  labs(y = "Number of presses (MEAN)",
+       x = "Day",
+       title = "Number of presses for each lever per day for DRUGcor group (MEAN ALL MICE)")# Graph number of presses on each
+
+ggsave("EvolutionofLeverDecision-SORAcor-per-day.png", width = 11, height = 8)
 
 ```
 
@@ -332,4 +414,5 @@ summary(DRUGcor$mean_timeb)
 For the drug group, we can see that the mean time of response is approximately 13 seconds bewteen two presses while for the TPGS group the mean is approximately 10 seconds.
 
 # Other remarks : 
+
 
