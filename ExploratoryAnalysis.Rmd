@@ -3,6 +3,9 @@ title: "Exploratory analysis of OP006 operant data"
 author: "JeremyMetha & MathildeBertheau"
 date: "26/07/2019"
 output:
+  pdf_document:
+    toc: yes
+    toc_depth: '2'
   html_document:
     code_folding: hide
     df_print: paged
@@ -13,13 +16,10 @@ output:
     theme: yeti
     toc: yes
     toc_depth: 2
-  pdf_document:
-    toc: yes
-    toc_depth: '2'
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+
 library(tidyverse)
 library(FactoMineR)
 library(factoextra)
@@ -32,6 +32,8 @@ library(rmarkdown)
 library(knitr)
 library(gridExtra)
 library(cowplot)
+library(optimx)
+
 
 
 arm1 <- read.csv("cleanarm1.csv")
@@ -51,7 +53,6 @@ arm1 <- arm1 %>%
 sortarm1 <- arrange(arm1, Subject, Day, Time) # Sort out the data 
 
 head(sortarm1)
-
 
 ```
 
@@ -414,5 +415,44 @@ ggsave("EvolutionofLeverDecision-SORAcor-per-day.png", width = 11, height = 8)
 For the drug group, we can see that the mean time of response is approximately 13 seconds bewteen two presses while for the TPGS group the mean is approximately 10 seconds.
 
 # Other remarks : 
+
+# Perseverative model
+
+```{r}
+Cohort <- sortarm1 %>%
+  mutate(C=case_when(Choice==-1 ~ 0,
+                   Choice==1 ~ 1)) %>% 
+  mutate(R=case_when(Reward==-1 ~ 0,
+                   Reward==1 ~ 1)) 
+
+Cohort         
+```
+
+```{r}
+
+
+m1 <- Cohort %>%
+  filter(Subject == 13.1)
+
+choice = m1$C
+reward = m1$R
+
+
+source("simulate_player.R")
+source("qlearning_model.R")
+source("fit_qlearning.R")
+source("eval_loglike.R")
+inx = c(0.5, 1) #starting values for alpha and beta
+result_qlearn = fit_qlearning(inx, choice, reward)
+
+```
+```{r}
+library(ReinforcementLearning)
+library(QLearning)
+
+r <- arrange(arm1,Day,Trial, Subject)
+
+
+```
 
 
