@@ -416,42 +416,150 @@ For the drug group, we can see that the mean time of response is approximately 1
 
 # Other remarks : 
 
-# Perseverative model
+# Models
 
-```{r}
-Cohort <- sortarm1 %>%
-  mutate(C=case_when(Choice==-1 ~ 0,
-                   Choice==1 ~ 1)) %>% 
-  mutate(R=case_when(Reward==-1 ~ 0,
-                   Reward==1 ~ 1)) 
-
-Cohort         
-```
+## Q-learning model
 
 ```{r}
 
+# fitting to all models
 
-m1 <- Cohort %>%
-  filter(Subject == 13.1)
+names(sortarm1)[4] <- "SessionOrder"
 
-choice = m1$C
-reward = m1$R
+# Need to bust cohort apart into individual animals and strip out omissions, additionally switch sides acccording to learning or reversal
 
+# High in learning = 1, high in reversal = 0
+# Also need reward vector, rewarded = 1, nonrewarded = 0
+# and day vecto, as long as days are diffrent from each other, it's all good.
+
+dfs <- sortarm1 %>%
+  mutate(Response=case_when(Choice==-1 & SessionOrder=='0P005_WTL' ~ 0,
+                   Choice==1 & SessionOrder=='0P005_WTL' ~ 1,
+                   Choice==-1 & SessionOrder=='0P005_WTR' ~ 1,
+                   Choice==1 & SessionOrder=='0P005_WTR' ~ 0)) %>% 
+  mutate(Reward=case_when(Reward==-1 ~ 0,
+                   Reward==1 ~ 1)) %>%
+  select(Day, Subject, Response, Reward, SessionOrder)
+
+m2 <- dfs %>%
+  filter(Subject == 1.1) 
+
+m2$Reward[is.na(m2$Reward)] <- 0
+m2 <- m2[lapply(m2,length)>0]
+
+
+
+choice = as.vector(m2$Response)
+reward = as.vector(m2$Reward)
+day = m2$Day
 
 source("simulate_player.R")
 source("qlearning_model.R")
 source("fit_qlearning.R")
 source("eval_loglike.R")
-inx = c(0.5, 1) #starting values for alpha and beta
+inx= c(0.5,1)
 result_qlearn = fit_qlearning(inx, choice, reward)
 
 ```
+
+## Dual alphas model
+
 ```{r}
-library(ReinforcementLearning)
-library(QLearning)
+choice = as.vector(m2$Response)
+reward = as.vector(m2$Reward)
+day = m2$Day
+inx=c(0.5,0.5,1)
+result_duala = fit_dualalphas(inx, choice, reward)
 
-r <- arrange(arm1,Day,Trial, Subject)
+```
 
+## Perseverative model
+
+```{r}
+choice = as.vector(m2$Response)
+reward = as.vector(m2$Reward)
+day = m2$Day
+inx=c(0.5,0.5,0)
+result_pers=fit_perseverative(inx, choice, reward)
+```
+
+## Dual alpha and perseverative model
+
+```{r}
+choice = as.vector(m2$Response)
+reward = as.vector(m2$Reward)
+day = m2$Day
+inx=c(0.5,0.5,1,0)
+result_alpers=fit_dualpers(inx, choice, reward)
+```
+
+```{r}
+df = as.data.frame(choice)
+df$SessionOrder = m2$SessionOrder
+df$trial = (1:length(choice))
+df <- df %>%
+  mutate(probchoice_perseverative = result_pers$probchoice) %>%
+  mutate(probchoice_dualpers = result_alpers$probchoice)
+
+
+
+ggplot(df, aes(x = trial , y = choice)) +
+  geom_rect(aes(xmin = trial, xmax = dplyr::lead(trial), ymin = -Inf, ymax = Inf, fill = SessionOrder),alpha = 0.3)+
+  geom_smooth(method = "loess", method.args = list(degree = 1), span = 0.005 ,se = FALSE)  +
+  geom_smooth(aes(y = probchoice_dualpers), method = "loess", method.args = list(degree = 1), span = 0.005, colour = "red",se = FALSE)+
+
+  theme_bw()
+
+```
+
+#plot weights
+df$pers = result_pers$weight[,1]
+df$dual = result_alpers$weight[,1]
+
+df <- df %>%
+  mutate(probchoice_perseverative = result_pers$probchoice) %>%
+  mutate(probchoice_dualpers = result_alpers$probchoice)
+df$dualfit = predict(loess(choice~trial, df, span = 0.1))
+df$probpers = predict(loess(pers~trial, df, span = 0.1))
+df$probdual = predict(loess(dual~trial, df, span = 0.1))
+df$probpers = predict(loess(probchoice_perseverative~trial, df, span = 0.1))
+df$probdual = predict(loess(probchoice_dualpers~trial, df, span = 0.1))
+df <- df %>%
+  mutate(dualfit = case_when(dualfit >= 1~1,
+                             dualfit < 0~0,
+                             dualfit >= 0 & dualfit < 1~dualfit)) %>%
+  mutate(pers = case_when(pers >= 1~1,
+                             pers < 0~0,
+                             pers >= 0 & pers < 1~pers)) %>%
+  mutate(dual = case_when(dual >= 1~1,
+                          dual < 0~0,
+                          dual >= 0 & dual < 1~dual)) %>%
+  mutate(probpers = case_when(probpers >= 1~1,
+                              probpers < 0~0,
+                              probpers >= 0 & probpers < 1~probpers)) %>%
+  mutate(probdual = case_when(probdual >= 1~1,
+                              probdual < 0~0,
+                              probdual >= 0 & probdual < 1~probdual))
+
+
+ggplot(df, aes(x = trial, y = dualfit))+
+  geom_point()
+
+ggplot(df, aes(x = trial)) +
+  #geom_rect(aes(xmin = trial, xmax = dplyr::lead(trial), ymin = -Inf, ymax = Inf, fill = SessionOrder), alpha = 0.3)+
+  geom_line(aes(y = dual), colour = "purple", size = 1)+
+  geom_line(aes(y = alpha), colour = "red", size = 1)+
+  geom_line(aes(y = dualfit), colour = "blue", size = 1)+
+  theme_bw()
+
+sub16 <- list(result_qlearn, result_perseverative, result_dualalphas, result_2slippers)
+save(sub16, file = "sub16.Rda")
+sub2
+sub2[1]
+
+write_csv(df, "df.csv")
+transpoints <- df %>%
+  filter(SessionOrder != lag(SessionOrder))
 
 ```
 
