@@ -415,4 +415,19 @@ For the drug group, we can see that the mean time of response is approximately 1
 
 # Other remarks : 
 
+Getting optimisations to work!
+```{r}
+master <- sortarm1 %>% 
+  mutate(C = case_when(Choice == -1 ~ 0,
+                       Choice == 1 ~ 1)) %>% 
+  mutate(R = case_when(Reward == -1 ~ 0,
+                       Reward == 1 ~ 1))
+names = unique(master$Subject)
 
+for(name in names){
+  m2 <- master %>%
+    filter(Subject == name)
+  choice = m2$C
+  reward = m2$R
+  }
+```
