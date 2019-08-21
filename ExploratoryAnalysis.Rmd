@@ -3,6 +3,9 @@ title: "Exploratory analysis of OP006 operant data"
 author: "JeremyMetha & MathildeBertheau"
 date: "26/07/2019"
 output:
+  pdf_document:
+    toc: yes
+    toc_depth: '2'
   html_document:
     code_folding: hide
     df_print: paged
@@ -13,13 +16,10 @@ output:
     theme: yeti
     toc: yes
     toc_depth: 2
-  pdf_document:
-    toc: yes
-    toc_depth: '2'
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+
 library(tidyverse)
 library(FactoMineR)
 library(factoextra)
@@ -32,9 +32,12 @@ library(rmarkdown)
 library(knitr)
 library(gridExtra)
 library(cowplot)
+library(optimx)
+library(rlist)
+library(gridExtra)
 
 
-arm1 <- read.csv("cleanarm1.csv")
+arm1 <- read.csv("properlycleanarm2.csv")
 ```
 
 
@@ -48,9 +51,14 @@ arm1 <- arm1 %>%
 
 
 
-sortarm1 <- arrange(arm1, Subject, Day, Time) # Sort out the data 
+sortarm1 <- arrange(arm1, Subject, Day, Time)%>% # Sort out the data
+  mutate(Treatment = as.character(Treatment)) %>% 
+  mutate(Treatment = if_else(Subject == 14.4, "T", Treatment))
+
+
 
 head(sortarm1)
+
 
 
 ```
@@ -75,18 +83,18 @@ TBD <- sortarm1 %>%
 ## Mouse 1.1 
 
 ```{r}
-M <- arm1[arm1$Subject=='1.1' ,]
+M <- arm1[arm1$Subject=='14.3' ,]
 summary(M)
 table(M$Choice)
 table(M$Reward)
 
 
 
-ML <- subset(arm1, Subject=='1.1' & Task=='0P005_WTL')
+ML <- subset(arm1, Subject=='14.3' & Task=='0P005_WTL')
 dim(ML)
 table(ML$Choice)
 
-MR <- subset(arm1, Subject=='1.1' & Task=='0P005_WTR')
+MR <- subset(arm1, Subject=='14.3' & Task=='0P005_WTR')
 dim(MR)
 table(MR$Choice)
 
@@ -298,14 +306,14 @@ ggsave("EvolutionofTimeResponseSORA-2.png", width = 11, height = 8)
 
 ```{r}
 
-TPGScor <- subset(TPGS, Subject!='2.3' & Subject!='11.1')
+TPGScor <- subset(TPGS, Subject!='3.1' & Subject!='16.2')
 
 qplot(Day, mean_timeb, data = TPGScor, color=Subject, geom='path') +  
   labs(y = "Time needed between two presses (in seconds)",
        x = "Day",
        title = "Evolution of Timebetween Data for the TPGS_cor group")
 
-#TPGS[TPGS$mean_timeb>50 ,] # Identify aberrant subject ! 
+#TPGS[TPGS$mean_timeb>20 ,] # Identify aberrant subject ! 
 
 summary(TPGScor$mean_timeb)
 
@@ -345,12 +353,32 @@ AllSubT <- Levers %>% # New frame : mean of time of response for each day in the
   select(mean_all, Day) %>%
   distinct
 
-quickplot(x=Day, y=mean_all, data = AllSubT, color = Choice) +
+#Mouse 1.1
+M1 <- Levers %>%
+  filter(Subject=='4.2')
+M1
+AST2 <- M1 %>%
+  group_by(Day,Choice) %>% 
+  mutate(mean_all = mean(n, na.rm = TRUE)) %>% 
+  select(mean_all, Day) %>%
+  distinct
+AST2
+
+###
+
+g <- quickplot(x=Day, y=mean_all, data = AllSubT, color = Choice) +
   labs(y = "Number of presses (MEAN)",
        x = "Day",
        title = "Number of presses for each lever per day for TPGScor group (MEAN ALL MICE)")# Graph number of presses on each
 
-ggsave("EvolutionofLeverDecision-TPGScor-per-day.png", width = 11, height = 8)
+ggplot(AllSubT, mapping=aes(x = Day, y = mean_all, colour=Choice)) + geom_point(size= 7) +  
+  labs(y = "Number of presses (MEAN)",
+       x = "Day",
+       title = "Number of presses for each lever per day for Mouse 1.1")
+
+
+#ggsave("EvolutionofLeverDecision-TPGScor-per-day.png", width = 11, height = 8)
+
 
 
 ```
@@ -359,9 +387,9 @@ ggsave("EvolutionofLeverDecision-TPGScor-per-day.png", width = 11, height = 8)
 
 ```{r}
 
-DRUG[DRUG$mean_timeb>100 ,] # Identify aberrant subject ! 
+DRUG[DRUG$mean_timeb>20 ,] # Identify aberrant subject ! 
 
-DRUGcor <- subset(DRUG, Subject!='7.4' & Subject!='9.1' & Subject!='10.4'& Subject!='10.3')
+DRUGcor <- subset(DRUG, Subject!='1.2')
 
 qplot(Day, mean_timeb, data = DRUGcor, color=Subject, geom='path') +  
   labs(y = "Time needed between two presses (in seconds)",
@@ -408,13 +436,141 @@ quickplot(x=Day, y=mean_all, data = AllSub, color = Choice) +
 
 ggsave("EvolutionofLeverDecision-SORAcor-per-day.png", width = 11, height = 8)
 
+ggplot(AllSub, mapping=aes(x = Day, y = mean_all, colour=Choice)) + geom_point(size= 7) +  
+  labs(y = "Number of presses (MEAN)",
+       x = "Day",
+       title = "Number of presses for each lever per day for DRUGcor group (MEAN ALL MICE)")
+
 ```
 
 
 For the drug group, we can see that the mean time of response is approximately 13 seconds bewteen two presses while for the TPGS group the mean is approximately 10 seconds.
 
+# Mice pressing which one in function of reward - Strategy 
+
+```{r}
+M <- sortarm1 %>%
+  filter(Subject=='5.1')
+
+Mstrat <- M %>%
+  mutate(Rbefore=lag(Reward)) %>%
+  mutate(Previous=lag(Choice))
+
+
+
+
+
+high_rewarded <- Mstrat %>%
+  filter(Choice=='1' & Rbefore=='1') %>%
+  count(Choice, Day)
+HR <- high_rewarded %>%
+  mutate(type='High_Rewarded')
+
+
+Low_rewarded <- Mstrat %>%
+  filter(Choice=='-1' & Rbefore=='1') %>%
+  count(Choice, Day)
+LR <- Low_rewarded %>%
+  mutate(type='Low_Rewarded')
+
+High_nonrewarded <- Mstrat %>%
+  filter(Choice=='1' & Rbefore=='-1') %>%
+  count(Choice, Day)
+HNR <- high_nonrewarded %>%
+  mutate(type='High_nonrewarded')
+
+Low_nonrewarded <- Mstrat %>%
+  filter(Choice=='-1' & Rbefore=='-1') %>%
+  count(Choice, Day)
+LNR <- Low_nonrewarded %>%
+  mutate(type='Low_nonrewarded')
+
+#A <- barplot(high_rewarded$n, col='darkred', main='Num_presses per day mouse 1.1for the high lever with a reward')
+#B <-barplot(Low_rewarded$n, col='darkblue', main='Num_presses per day mouse 1.1for the Low lever with a reward')
+#C<-barplot(high_nonrewarded$n, col='red', main='Num_presses per day mouse 1.1for the high lever without a reward')
+#D <-barplot(Low_nonrewarded$n, col='blue', main='Num_presses per day mouse 1.1for the Low lever without a reward')
+
+
+strategy <- rbind(HR,HNR,LR,LNR)
+
+quickplot(x=Day, y=n, data=strategy, col=type, main='Strategy mouse 1.1', ylab='Nb_presses')
+
+
+ggplot(data=strategy, aes(x=Day, y=n,fill=type)) +
+  labs(y = "Nb_presses",
+       x = "Day",
+       title = "Strategy mouse 1.1 : Which lever if rewarded or not rewarded ?") +
+  geom_bar(stat="identity", width=0.7) + scale_fill_brewer(palette="RdBu") #position=position_dodge()
+
+
+
+
+
+# Press the High_Lever after pressing it and getting a reward in return 
+Win <- Mstrat %>%
+  filter(Previous=='1' & Rbefore=='1') %>%
+  count(Choice=='1', Day)
+names(Win)[3] <- "Lever"
+Win$Lever[Win$Lever==FALSE] <- "Low_lever"
+Win$Lever[Win$Lever==TRUE] <- "High_lever"
+
+
+A <- ggplot(data=Win, aes(x=Day, y=n,fill=Lever)) +
+  labs(y = "Nb_presses",
+       x = "Day",
+       title = " High_lever + Reward") +
+  geom_bar(stat="identity", width=0.7)  #position=position_dodge()
+
+Win2 <- Mstrat %>%
+  filter(Previous=='-1' & Rbefore=='1') %>%
+  count(Choice=='1', Day)
+names(Win2)[3] <- "Lever"
+Win2$Lever[Win2$Lever==FALSE] <- "Low_lever"
+Win2$Lever[Win2$Lever==TRUE] <- "High_lever"
+
+B <- ggplot(data=Win2, aes(x=Day, y=n,fill=Lever)) +
+  labs(y = "Nb_presses",
+       x = "Day",
+       title = " Low_lever + Reward") +
+  geom_bar(stat="identity", width=0.7)  #position=position_dodge()
+# Press the High_Lever after pressing the Low_lever and not getting a reward 
+Lost2 <- Mstrat %>%
+  filter(Previous=='-1' & Rbefore=='-1') %>%
+  count(Choice=='1', Day)
+names(Lost2)[3] <- "Lever"
+Lost2$Lever[Lost2$Lever==FALSE] <- "Low_lever"
+Lost2$Lever[Lost2$Lever==TRUE] <- "High_lever"
+
+C <- ggplot(data=Lost2, aes(x=Day, y=n,fill=Lever)) +
+  labs(y = "Nb_presses",
+       x = "Day",
+       title = "Low_lever + No Reward") +
+  geom_bar(stat="identity", width=0.7)  #position=position_dodge()
+
+
+Lost <- Mstrat %>%
+  filter(Previous=='1' & Rbefore=='-1') %>%
+  count(Choice=='1', Day)
+names(Lost)[3] <- "Lever"
+Lost$Lever[Lost$Lever==FALSE] <- "Low_lever"
+Lost$Lever[Lost$Lever==TRUE] <- "High_lever"
+
+D <- ggplot(data=Lost, aes(x=Day, y=n,fill=Lever)) +
+  labs(y = "Nb_presses",
+       x = "Day",
+       title = " High_lever + No Reward") +
+  geom_bar(stat="identity", width=0.7)  #position=position_dodge()
+
+
+plot_grid(A,B,C,D)
+```
+
+
+
+
 # Other remarks : 
 
+<<<<<<< HEAD
 Getting optimisations to work!
 ```{r}
 master <- sortarm1 %>% 
@@ -431,3 +587,388 @@ for(name in names){
   reward = m2$R
   }
 ```
+=======
+# Models
+
+## Q-learning model
+
+```{r}
+
+# fitting to all models
+
+names(sortarm1)[4] <- "SessionOrder"
+
+# Need to bust cohort apart into individual animals and strip out omissions, additionally switch sides acccording to learning or reversal
+
+# High in learning = 1, high in reversal = 0
+# Also need reward vector, rewarded = 1, nonrewarded = 0
+# and day vecto, as long as days are diffrent from each other, it's all good.
+
+dfs <- sortarm1 %>%
+  mutate(Response=case_when(Choice==-1 & SessionOrder=='0P005_WTL' ~ 0,
+                   Choice==1 & SessionOrder=='0P005_WTL' ~ 1,
+                   Choice==-1 & SessionOrder=='0P005_WTR' ~ 1,
+                   Choice==1 & SessionOrder=='0P005_WTR' ~ 0)) %>% 
+  mutate(Reward=case_when(Reward==-1 ~ 0,
+                   Reward==1 ~ 1)) %>%
+  select(Day, Treatment, Subject, Response, Reward, SessionOrder)
+
+
+
+m2 <- dfs %>%
+  filter(Subject == 1.2) 
+
+
+
+m2$Reward[is.na(m2$Reward)] <- 0
+m2 <- m2[lapply(m2,length)>0]
+
+
+
+choice = as.vector(m2$Response)
+reward = as.vector(m2$Reward)
+day = m2$Day
+
+source("simulate_player.R")
+source("qlearning_model.R")
+source("fit_qlearning.R")
+source("eval_loglike.R")
+inxq= c(0.5,1)
+inxp=c(0.5,0.5,0)
+inxa=c(0.5,0.5,1)
+inxd=c(0.5,0.5,1,0)
+result_qlearn = fit_qlearning(inxq, choice, reward)
+result_perseverative=fit_perseverative(inxp, choice, reward)
+result_duala=fit_dualalphas(inxa, choice, reward)
+result_dualpers=fit_dualpers(inxd, choice, reward)
+
+
+```
+
+# Graph models
+```{r}
+df = as.data.frame(choice)
+df$SessionOrder = m2$SessionOrder
+df$trial = (1:length(choice))
+
+df <- df %>%
+  mutate(probchoice_perseverative = result_perseverative$probchoice) %>%
+  mutate(probchoice_dualalphas = result_duala$probchoice) %>%
+  mutate(probchoice_dual = result_dualpers$probchoice) %>%
+  mutate(probchoice_q = result_qlearn$probchoice)
+
+pers <- ggplot(df, aes(x = trial , y = choice)) +labs(title='Perseverative model') + 
+  geom_rect(aes(xmin = trial, xmax = dplyr::lead(trial), ymin = -Inf, ymax = Inf, fill = SessionOrder),alpha = 0.3)+
+  geom_smooth(method = "loess", method.args = list(degree = 1), span = 0.005 ,se = FALSE)  +
+  geom_smooth(aes(y = probchoice_perseverative), method = "loess", method.args = list(degree = 1), span = 0.005, colour = "red",se = FALSE) + theme_bw()
+
+q <- ggplot(df, aes(x = trial , y = choice)) +labs(title='Q-learning model') + 
+  geom_rect(aes(xmin = trial, xmax = dplyr::lead(trial), ymin = -Inf, ymax = Inf, fill = SessionOrder),alpha = 0.3)+
+  geom_smooth(method = "loess", method.args = list(degree = 1), span = 0.005 ,se = FALSE)  +
+  geom_smooth(aes(y = probchoice_q), method = "loess", method.args = list(degree = 1), span = 0.005, colour = "purple",se = FALSE)
+
+alpha <- ggplot(df, aes(x = trial , y = choice)) +labs(title='Dual alphas model') + 
+  geom_rect(aes(xmin = trial, xmax = dplyr::lead(trial), ymin = -Inf, ymax = Inf, fill = SessionOrder),alpha = 0.3)+
+  geom_smooth(method = "loess", method.args = list(degree = 1), span = 0.005 ,se = FALSE)  +
+  geom_smooth(aes(y = probchoice_dualalphas), method = "loess", method.args = list(degree = 1), span = 0.005, colour = "dark green",se = FALSE)
+
+dual <- ggplot(df, aes(x = trial , y = choice)) +labs(title='Dual perseverative & alphas model') + 
+  geom_rect(aes(xmin = trial, xmax = dplyr::lead(trial), ymin = -Inf, ymax = Inf, fill = SessionOrder),alpha = 0.3)+
+  geom_smooth(method = "loess", method.args = list(degree = 1), span = 0.005 ,se = FALSE)  +
+  geom_smooth(aes(y = probchoice_dual), method = "loess", method.args = list(degree = 1), span = 0.005, colour = "dark red",se = FALSE)
+
+plot_grid(q,pers,alpha,dual)
+```
+
+
+
+## Dual alphas model
+
+```{r}
+choice = as.vector(m2$Response)
+reward = as.vector(m2$Reward)
+
+day = m2$Day
+inx=c(0.5,0.5,1)
+result_duala = fit_dualalphas(inx, choice, reward)
+
+```
+
+## Perseverative model
+
+```{r}
+choice = as.vector(m2$Response)
+reward = as.vector(m2$Reward)
+day = m2$Day
+inx=c(0.5,0.5,0)
+result_pers=fit_perseverative(inx, choice, reward)
+```
+
+## Dual alpha and perseverative model
+
+```{r}
+choice = as.vector(m2$Response)
+reward = as.vector(m2$Reward)
+
+day = m2$Day
+inx=c(0.5,0.5,1,0)
+result_alpers=fit_dualpers(inx, choice, reward)
+```
+
+# Loop for mice
+
+## Q-learning model
+```{r}
+library(rlist)
+
+j=1
+drug <- dfs %>%
+  filter(Treatment=='S') 
+
+
+names(drug)[1] <- "day"
+names(drug)[4] <- "choice"
+names(drug)[5] <- "reward"
+drug$reward[is.na(drug$reward)] <- 0
+inx1= c(0.5,1)
+inx2=c(0.5,0.5,1)
+inx3=c(0.5,0.5,0)
+inx4=c(0.5,0.5,1,0)
+
+L <- unique(drug$Subject)
+
+
+AIC_q <- list()
+BIC_q <- list()
+alpha_qlearn <- list ()
+beta_qlearn <- list()
+AIC_a <- list()
+Subject <- list()
+
+j <- 1 
+for (i in L){
+  m <- drug %>% 
+    filter(Subject==i)
+  choice = as.vector(m$choice)
+  reward = as.vector(m$reward)
+  try({result_qlearn=fit_qlearning(inx1,choice, reward)
+  
+  AIC_q[j] <- result_qlearn$AIC
+  BIC_q[j] <- result_qlearn$BIC
+  alpha_qlearn[j] <- result_qlearn$alpha
+  beta_qlearn[j] <- result_qlearn$beta
+  AIC_a[j] <- result_duala$AIC
+  Subject[j] <- i
+  j <- j+1}, silent = T)}
+
+res <- data.frame(L) %>%
+  mutate(as.numeric(AIC_q)) %>%
+  mutate(as.numeric(alpha_qlearn)) %>%
+  mutate(as.numeric(BIC_q)) %>%
+  mutate(as.numeric(beta_qlearn))
+
+write.csv(res, file='res_TPGS-arm2_qlearn')
+res
+
+```
+
+## Perseverative
+```{r}
+
+j=1
+drug <- dfs %>%
+  filter(Treatment=='T' ) 
+
+
+names(drug)[1] <- "day"
+names(drug)[4] <- "choice"
+names(drug)[5] <- "reward"
+
+drug$reward[is.na(drug$reward)] <- 0
+inx1= c(0.5,1)
+inx2=c(0.5,0.5,1)
+inx3=c(0.5,0.5,0)
+inx4=c(0.5,0.5,1,0)
+
+L <- unique(drug$Subject)
+
+AIC_p <- list()
+BIC_p <- list()
+alpha_pers <- list()
+beta_pers <- list()
+delta_pers <- list()
+
+for (i in L){
+  m <- drug %>% 
+    filter(Subject==i)
+  choice = as.vector(m$choice)
+  reward = as.vector(m$reward)
+  try({result_pers=fit_perseverative(inx3,choice, reward)
+
+  AIC_p[j] <- result_pers$AIC
+  BIC_p[j] <- result_pers$BIC
+  alpha_pers[j] <- result_pers$alpha
+  beta_pers[j] <- result_pers$beta
+  delta_pers[j] <- result_pers$delta
+
+  j <- j+1}, silent = T)}
+
+resp <- data.frame(L) %>%
+  mutate(as.numeric(AIC_p)) %>%
+  mutate(as.numeric(alpha_pers)) %>%
+  mutate(as.numeric(BIC_p)) %>%
+  mutate(as.numeric(beta_pers)) %>%
+  mutate(as.numeric(delta_pers))
+write.csv(resp, file='res_TPGS-arm2_pers')
+
+
+```
+
+
+
+## Dual alphas
+```{r}
+j=1
+drug <- dfs %>%
+  filter(Treatment=='T') 
+
+
+names(drug)[1] <- "day"
+names(drug)[4] <- "choice"
+names(drug)[5] <- "reward"
+drug$reward[is.na(drug$reward)] <- 0
+inx1= c(0.5,1)
+inx2=c(0.5,0.5,1)
+inx3=c(0.5,0.5,0)
+inx4=c(0.5,0.5,1,0)
+
+L <- unique(drug$Subject)
+
+
+AIC_a <- list()
+BIC_a <- list()
+alphaneg_dualalpha <- list()
+alphapos_dualalpha <- list()
+beta_dualalpha <- list()
+
+for (i in L){
+  m <- drug %>% 
+    filter(Subject==i)
+  choice = as.vector(m$choice)
+  reward = as.vector(m$reward)
+  try({result_alphas=fit_dualalphas(inx2,choice, reward)
+
+  AIC_a[j] <- result_alphas$AIC
+  BIC_a[j] <- result_alphas$BIC
+  alphaneg_dualalpha[j] <- result_alphas$alpha_neg
+  alphapos_dualalpha[j] <- result_alphas$alpha_pos
+  beta_dualalpha[j] <- result_alphas$beta
+
+  j <- j+1}, silent = T)}
+
+   resa <- data.frame(L) %>%
+  mutate(as.numeric(AIC_a)) %>%
+  mutate(as.numeric(BIC_a)) %>%
+  mutate(as.numeric(alphaneg_dualalpha)) %>%
+  mutate(as.numeric(alphapos_dualalpha)) %>%
+  mutate(as.numeric(beta_dualalpha))
+
+write.csv(resa, file='res_TPGS-arm2_alpha')
+
+resa
+
+```
+
+
+  
+## Dual perseverative and alphas
+```{r}
+j=1
+drug <- dfs %>%
+  filter(Treatment=='T') 
+
+
+names(drug)[1] <- "day"
+names(drug)[4] <- "choice"
+names(drug)[5] <- "reward"
+
+drug$reward[is.na(drug$reward)] <- 0
+inx1= c(0.5,1)
+inx2=c(0.5,0.5,1)
+inx3=c(0.5,0.5,0)
+inx4=c(0.5,0.5,1,0)
+
+L <- unique(drug$Subject)
+
+AIC_d <- list()
+BIC_d <- list()
+alphaneg_dual <- list()
+alphapos_dual <- list()
+beta_dual <- list()
+delta_dual <- list()
+
+for (i in L){
+  m <- drug %>% 
+    filter(Subject==i)
+  choice = as.vector(m$choice)
+  reward = as.vector(m$reward)
+  try({result_dual=fit_dualpers(inx4,choice, reward)
+
+  AIC_d[j] <- result_dual$AIC
+  BIC_d[j] <- result_dual$BIC
+  alphaneg_dual[j] <- result_dual$alpha_neg
+  alphapos_dual[j] <- result_dual$alpha_pos
+  beta_dual[j] <- result_dual$beta
+  delta_dual[j] <- result_dual$delta
+
+  j <- j+1}, silent = T)}
+
+
+resd <- data.frame(L) %>%
+  mutate(as.numeric(AIC_d)) %>%
+  mutate(as.numeric(alphaneg_dual)) %>%
+  mutate(as.numeric(BIC_d)) %>%
+  mutate(as.numeric(alphapos_dual)) %>%
+  mutate(as.numeric(delta_dual)) %>%
+  mutate(as.numeric(beta_dual))
+
+write.csv(resd, file='res_TPGS-arm2_dualmodel')
+
+```
+
+
+
+# Analysis group Drug 
+```{r}
+SQ <- read.csv("res_Drug-arm2_qlearn.csv")
+SP <- read.csv("res_Drug-arm2_pers")
+SA <- read.csv("res_Drug-arm2_alpha")
+SD <- read.csv("res_Drug-arm2_dualmodel")
+
+
+# Correction excessive values subjects ??? 
+
+
+SP_cor <- subset(SP, L!='6.4' & L!='13.1' & L!='22.1')
+
+SQ_cor <- subset(SQ, L!='6.4' & L!='13.1' & L!='22.1')
+SA_cor <- subset(SA, L!='6.4' & L!='13.1' & L!='22.1' & L!='18.4')
+SD_cor <- subset(SD, L!='6.4' & L!='13.1' & L!='22.1' & L!='8.2')
+
+mean(SP_cor$as.numeric.AIC_p.)
+
+```
+
+# Analysis group TPGS
+```{r}
+TQ <- read.csv("res_TPGS-arm2_qlearn")
+TP <- read.csv("res_TPGS-arm2_pers")
+TA <- read.csv("res_TPGS-arm2_alpha")
+TD <- read.csv("res_TPGS-arm2_dualmodel")
+
+mean(TD$as.numeric.beta_dual.)
+
+
+```
+
+>>>>>>> 08d7095fcb9ed788398c1016d4daa85c3206f669
