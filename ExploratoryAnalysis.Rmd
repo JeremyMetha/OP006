@@ -37,7 +37,7 @@ library(rlist)
 library(gridExtra)
 
 
-arm1 <- read.csv("properlycleanarm1.csv")
+arm1 <- read.csv("properlycleanarm2.csv")
 ```
 
 
@@ -306,14 +306,14 @@ ggsave("EvolutionofTimeResponseSORA-2.png", width = 11, height = 8)
 
 ```{r}
 
-TPGScor <- subset(TPGS, Subject!='2.3' & Subject!='11.1')
+TPGScor <- subset(TPGS, Subject!='3.1' & Subject!='16.2')
 
 qplot(Day, mean_timeb, data = TPGScor, color=Subject, geom='path') +  
   labs(y = "Time needed between two presses (in seconds)",
        x = "Day",
        title = "Evolution of Timebetween Data for the TPGS_cor group")
 
-#TPGS[TPGS$mean_timeb>50 ,] # Identify aberrant subject ! 
+#TPGS[TPGS$mean_timeb>20 ,] # Identify aberrant subject ! 
 
 summary(TPGScor$mean_timeb)
 
@@ -353,12 +353,32 @@ AllSubT <- Levers %>% # New frame : mean of time of response for each day in the
   select(mean_all, Day) %>%
   distinct
 
-quickplot(x=Day, y=mean_all, data = AllSubT, color = Choice) +
+#Mouse 1.1
+M1 <- Levers %>%
+  filter(Subject=='4.2')
+M1
+AST2 <- M1 %>%
+  group_by(Day,Choice) %>% 
+  mutate(mean_all = mean(n, na.rm = TRUE)) %>% 
+  select(mean_all, Day) %>%
+  distinct
+AST2
+
+###
+
+g <- quickplot(x=Day, y=mean_all, data = AllSubT, color = Choice) +
   labs(y = "Number of presses (MEAN)",
        x = "Day",
        title = "Number of presses for each lever per day for TPGScor group (MEAN ALL MICE)")# Graph number of presses on each
 
-ggsave("EvolutionofLeverDecision-TPGScor-per-day.png", width = 11, height = 8)
+ggplot(AllSubT, mapping=aes(x = Day, y = mean_all, colour=Choice)) + geom_point(size= 7) +  
+  labs(y = "Number of presses (MEAN)",
+       x = "Day",
+       title = "Number of presses for each lever per day for Mouse 1.1")
+
+
+#ggsave("EvolutionofLeverDecision-TPGScor-per-day.png", width = 11, height = 8)
+
 
 
 ```
@@ -367,9 +387,9 @@ ggsave("EvolutionofLeverDecision-TPGScor-per-day.png", width = 11, height = 8)
 
 ```{r}
 
-DRUG[DRUG$mean_timeb>100 ,] # Identify aberrant subject ! 
+DRUG[DRUG$mean_timeb>20 ,] # Identify aberrant subject ! 
 
-DRUGcor <- subset(DRUG, Subject!='7.4' & Subject!='9.1' & Subject!='10.4'& Subject!='10.3')
+DRUGcor <- subset(DRUG, Subject!='1.2')
 
 qplot(Day, mean_timeb, data = DRUGcor, color=Subject, geom='path') +  
   labs(y = "Time needed between two presses (in seconds)",
@@ -416,6 +436,11 @@ quickplot(x=Day, y=mean_all, data = AllSub, color = Choice) +
 
 ggsave("EvolutionofLeverDecision-SORAcor-per-day.png", width = 11, height = 8)
 
+ggplot(AllSub, mapping=aes(x = Day, y = mean_all, colour=Choice)) + geom_point(size= 7) +  
+  labs(y = "Number of presses (MEAN)",
+       x = "Day",
+       title = "Number of presses for each lever per day for DRUGcor group (MEAN ALL MICE)")
+
 ```
 
 
@@ -425,7 +450,7 @@ For the drug group, we can see that the mean time of response is approximately 1
 
 ```{r}
 M <- sortarm1 %>%
-  filter(Subject=='2.3')
+  filter(Subject=='5.1')
 
 Mstrat <- M %>%
   mutate(Rbefore=lag(Reward)) %>%
@@ -590,30 +615,55 @@ source("simulate_player.R")
 source("qlearning_model.R")
 source("fit_qlearning.R")
 source("eval_loglike.R")
-inx= c(0.5,1)
-result_qlearn = fit_qlearning(inx, choice, reward)
+inxq= c(0.5,1)
+inxp=c(0.5,0.5,0)
+inxa=c(0.5,0.5,1)
+inxd=c(0.5,0.5,1,0)
+result_qlearn = fit_qlearning(inxq, choice, reward)
+result_perseverative=fit_perseverative(inxp, choice, reward)
+result_duala=fit_dualalphas(inxa, choice, reward)
+result_dualpers=fit_dualpers(inxd, choice, reward)
 
 
 ```
 
+# Graph models
 ```{r}
 df = as.data.frame(choice)
 df$SessionOrder = m2$SessionOrder
 df$trial = (1:length(choice))
+
 df <- df %>%
-  mutate(probchoice_perseverative = result_pers$probchoice) %>%
-  mutate(probchoice_dualpers = result_alpers$probchoice)
+  mutate(probchoice_perseverative = result_perseverative$probchoice) %>%
+  mutate(probchoice_dualalphas = result_duala$probchoice) %>%
+  mutate(probchoice_dual = result_dualpers$probchoice) %>%
+  mutate(probchoice_q = result_qlearn$probchoice)
 
-
-
-ggplot(df, aes(x = trial , y = choice)) +
+pers <- ggplot(df, aes(x = trial , y = choice)) +labs(title='Perseverative model') + 
   geom_rect(aes(xmin = trial, xmax = dplyr::lead(trial), ymin = -Inf, ymax = Inf, fill = SessionOrder),alpha = 0.3)+
   geom_smooth(method = "loess", method.args = list(degree = 1), span = 0.005 ,se = FALSE)  +
-  geom_smooth(aes(y = probchoice_dualpers), method = "loess", method.args = list(degree = 1), span = 0.005, colour = "red",se = FALSE)+
+  geom_smooth(aes(y = probchoice_perseverative), method = "loess", method.args = list(degree = 1), span = 0.005, colour = "red",se = FALSE) + theme_bw()
 
-  theme_bw()
+q <- ggplot(df, aes(x = trial , y = choice)) +labs(title='Q-learning model') + 
+  geom_rect(aes(xmin = trial, xmax = dplyr::lead(trial), ymin = -Inf, ymax = Inf, fill = SessionOrder),alpha = 0.3)+
+  geom_smooth(method = "loess", method.args = list(degree = 1), span = 0.005 ,se = FALSE)  +
+  geom_smooth(aes(y = probchoice_q), method = "loess", method.args = list(degree = 1), span = 0.005, colour = "purple",se = FALSE)
 
+alpha <- ggplot(df, aes(x = trial , y = choice)) +labs(title='Dual alphas model') + 
+  geom_rect(aes(xmin = trial, xmax = dplyr::lead(trial), ymin = -Inf, ymax = Inf, fill = SessionOrder),alpha = 0.3)+
+  geom_smooth(method = "loess", method.args = list(degree = 1), span = 0.005 ,se = FALSE)  +
+  geom_smooth(aes(y = probchoice_dualalphas), method = "loess", method.args = list(degree = 1), span = 0.005, colour = "dark green",se = FALSE)
+
+dual <- ggplot(df, aes(x = trial , y = choice)) +labs(title='Dual perseverative & alphas model') + 
+  geom_rect(aes(xmin = trial, xmax = dplyr::lead(trial), ymin = -Inf, ymax = Inf, fill = SessionOrder),alpha = 0.3)+
+  geom_smooth(method = "loess", method.args = list(degree = 1), span = 0.005 ,se = FALSE)  +
+  geom_smooth(aes(y = probchoice_dual), method = "loess", method.args = list(degree = 1), span = 0.005, colour = "dark red",se = FALSE)
+
+plot_grid(q,pers,alpha,dual)
 ```
+
+
+
 ## Dual alphas model
 
 ```{r}
@@ -655,7 +705,7 @@ library(rlist)
 
 j=1
 drug <- dfs %>%
-  filter(Treatment=='T'& Subject!='16.3') 
+  filter(Treatment=='S') 
 
 
 names(drug)[1] <- "day"
@@ -693,34 +743,23 @@ for (i in L){
   Subject[j] <- i
   j <- j+1}, silent = T)}
 
-
 res <- data.frame(L) %>%
   mutate(as.numeric(AIC_q)) %>%
   mutate(as.numeric(alpha_qlearn)) %>%
   mutate(as.numeric(BIC_q)) %>%
   mutate(as.numeric(beta_qlearn))
-  
 
-write.csv(res, file='res_TPGS_qlearn')
-
+write.csv(res, file='res_TPGS-arm2_qlearn')
 res
 
 ```
 
-res <- data.frame(L) %>%
-  mutate(as.numeric(AIC_q)) %>%
-  mutate(as.numeric(alpha_qlearn)) %>%
-  mutate(as.numeric(BIC_q)) %>%
-  mutate(as.numeric(beta_qlearn))
-  write.csv(res, file='res_drug_qlearn')
-
-summary(res)
 ## Perseverative
 ```{r}
 
 j=1
 drug <- dfs %>%
-  filter(Treatment=='T' & Subject != '16.3') 
+  filter(Treatment=='T' ) 
 
 
 names(drug)[1] <- "day"
@@ -756,24 +795,24 @@ for (i in L){
 
   j <- j+1}, silent = T)}
 
-
 resp <- data.frame(L) %>%
   mutate(as.numeric(AIC_p)) %>%
   mutate(as.numeric(alpha_pers)) %>%
   mutate(as.numeric(BIC_p)) %>%
   mutate(as.numeric(beta_pers)) %>%
   mutate(as.numeric(delta_pers))
+write.csv(resp, file='res_TPGS-arm2_pers')
 
 
-write.csv(resp, file='res_TPGS_perseverative')
-
-summary(resp)
 ```
+
+
+
 ## Dual alphas
 ```{r}
 j=1
 drug <- dfs %>%
-  filter(Treatment=='T' & Subject!='16.3') 
+  filter(Treatment=='T') 
 
 
 names(drug)[1] <- "day"
@@ -809,29 +848,27 @@ for (i in L){
 
   j <- j+1}, silent = T)}
 
-resa <- data.frame(L) %>%
+   resa <- data.frame(L) %>%
   mutate(as.numeric(AIC_a)) %>%
   mutate(as.numeric(BIC_a)) %>%
   mutate(as.numeric(alphaneg_dualalpha)) %>%
   mutate(as.numeric(alphapos_dualalpha)) %>%
   mutate(as.numeric(beta_dualalpha))
 
-A <- as.numeric(BIC_a)
-alp <- as.numeric(beta_dualalpha)
+write.csv(resa, file='res_TPGS-arm2_alpha')
 
-mean(A)
+resa
+
 ```
-resa <- data.frame(L) %>%
-  mutate(as.numeric(AIC_a)) %>%
-  mutate(as.numeric(BIC_a)) %>%
-  mutate(as.numeric(alphaneg_dualalpha)) %>%
-  mutate(as.numeric(alphapos_dualalpha)) %>%
-  mutate(as.numeric(beta_dualalpha))
+
+
+  
 ## Dual perseverative and alphas
 ```{r}
 j=1
 drug <- dfs %>%
-  filter(Treatment=='T' & Subject!='16.3') 
+  filter(Treatment=='T') 
+
 
 names(drug)[1] <- "day"
 names(drug)[4] <- "choice"
@@ -868,10 +905,7 @@ for (i in L){
 
   j <- j+1}, silent = T)}
 
-A <- as.numeric(BIC_d)
-mean(A)
 
-```
 resd <- data.frame(L) %>%
   mutate(as.numeric(AIC_d)) %>%
   mutate(as.numeric(alphaneg_dual)) %>%
@@ -880,63 +914,42 @@ resd <- data.frame(L) %>%
   mutate(as.numeric(delta_dual)) %>%
   mutate(as.numeric(beta_dual))
 
-
-
-
-
-```{r}
-
-
-
-#plot weights
-df$pers = result_pers$weight[,1]
-df$dual = result_alpers$weight[,1]
-
-df <- df %>%
-  mutate(probchoice_perseverative = result_pers$probchoice) %>%
-  mutate(probchoice_dualpers = result_alpers$probchoice)
-df$dualfit = predict(loess(choice~trial, df, span = 0.1))
-df$probpers = predict(loess(pers~trial, df, span = 0.1))
-df$probdual = predict(loess(dual~trial, df, span = 0.1))
-df$probpers = predict(loess(probchoice_perseverative~trial, df, span = 0.1))
-df$probdual = predict(loess(probchoice_dualpers~trial, df, span = 0.1))
-df <- df %>%
-  mutate(dualfit = case_when(dualfit >= 1~1,
-                             dualfit < 0~0,
-                             dualfit >= 0 & dualfit < 1~dualfit)) %>%
-  mutate(pers = case_when(pers >= 1~1,
-                             pers < 0~0,
-                             pers >= 0 & pers < 1~pers)) %>%
-  mutate(dual = case_when(dual >= 1~1,
-                          dual < 0~0,
-                          dual >= 0 & dual < 1~dual)) %>%
-  mutate(probpers = case_when(probpers >= 1~1,
-                              probpers < 0~0,
-                              probpers >= 0 & probpers < 1~probpers)) %>%
-  mutate(probdual = case_when(probdual >= 1~1,
-                              probdual < 0~0,
-                              probdual >= 0 & probdual < 1~probdual))
-
-
-ggplot(df, aes(x = trial, y = dualfit))+
-  geom_point()
-
-ggplot(df, aes(x = trial)) +
-  #geom_rect(aes(xmin = trial, xmax = dplyr::lead(trial), ymin = -Inf, ymax = Inf, fill = SessionOrder), alpha = 0.3)+
-  geom_line(aes(y = dual), colour = "purple", size = 1)+
-  geom_line(aes(y = alpha), colour = "red", size = 1)+
-  geom_line(aes(y = dualfit), colour = "blue", size = 1)+
-  theme_bw()
-
-sub16 <- list(result_qlearn, result_perseverative, result_dualalphas, result_2slippers)
-save(sub16, file = "sub16.Rda")
-sub2
-sub2[1]
-
-write_csv(df, "df.csv")
-transpoints <- df %>%
-  filter(SessionOrder != lag(SessionOrder))
+write.csv(resd, file='res_TPGS-arm2_dualmodel')
 
 ```
 
+
+
+# Analysis group Drug 
+```{r}
+SQ <- read.csv("res_Drug-arm2_qlearn.csv")
+SP <- read.csv("res_Drug-arm2_pers")
+SA <- read.csv("res_Drug-arm2_alpha")
+SD <- read.csv("res_Drug-arm2_dualmodel")
+
+
+# Correction excessive values subjects ??? 
+
+
+SP_cor <- subset(SP, L!='6.4' & L!='13.1' & L!='22.1')
+
+SQ_cor <- subset(SQ, L!='6.4' & L!='13.1' & L!='22.1')
+SA_cor <- subset(SA, L!='6.4' & L!='13.1' & L!='22.1' & L!='18.4')
+SD_cor <- subset(SD, L!='6.4' & L!='13.1' & L!='22.1' & L!='8.2')
+
+mean(SP_cor$as.numeric.AIC_p.)
+
+```
+
+# Analysis group TPGS
+```{r}
+TQ <- read.csv("res_TPGS-arm2_qlearn")
+TP <- read.csv("res_TPGS-arm2_pers")
+TA <- read.csv("res_TPGS-arm2_alpha")
+TD <- read.csv("res_TPGS-arm2_dualmodel")
+
+mean(TD$as.numeric.beta_dual.)
+
+
+```
 
